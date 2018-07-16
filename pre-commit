@@ -1,0 +1,60 @@
+#!/bin/sh
+#LOG_PATH=/pre-log.txt
+export LANG=en_US.UTF-8
+REPOS="$1"
+TXN="$2"
+
+SVNLOOK=/usr/bin/svnlook
+JAVA=/usr/bin/java
+CHECKSTYLE=/root/dc/checkstyle-8.11-all.jar
+TMPDIR=/mytmp/$TXN
+REPORT=/mytmp/$TXN/report
+
+CHECKSTYLE_CONFIG=/root/dc/my_checkstyle.xml
+
+#CHANGED=`$SVNLOOK changed -t "$TXN" "$REPOS" | grep -v "^D" | awk '{print $2}'`
+#CHANGED=`$SVNLOOK changed -t "$TXN" "$REPOS" | awk '{print $2}'`
+
+CHANGED=`$SVNLOOK changed -t "$TXN" "$REPOS" | awk '{print substr($0,5)}'`
+#echo `$SVNLOOK changed -r $CHANGED_NUM $REPOS | awk '{print substr($0,5)}'` >> /mylog.txt
+mkdir -p $TMPDIR
+IFS=$'\n';
+for LINE in $CHANGED ; do
+    echo $LINE >> /mylog.txt
+    FILE=`echo $LINE | sed -n /.*java\$/p`
+    if [ -n "$FILE" ] ; then
+        DIRNAME=`dirname $FILE`
+        mkdir -p "$TMPDIR/$DIRNAME"
+        $SVNLOOK cat $REPOS --transaction $TXN $FILE > $TMPDIR/$FILE
+    fi
+done
+
+function readfile (){
+	for file in `ls $1`
+	do
+		#is directory
+		if test -d $1"/"$file 
+		then
+			#如果子文件夹则递归
+			readfile $1"/"$file
+		else
+			if [ ! -n "`echo $file | grep -E "^[A-Z][a-zA-Z0-9]*\.java$"`" ] ; then
+				echo "java文件名不合法" > /dev/stderr
+				exit 1
+			fi
+			if [ -z "`grep -r -I -l $'^\xEF\xBB\xBF' $1"/"$file`" ] ; then
+				java -jar $CHECKSTYLE -c CHECKSTYLE_CONFIG $1"/"$file > $TMPDIR/tmpfile.checkstyle
+				X=$?
+				if [ $X -ne 0 ] ; then
+					cat $TMPDIR/tmpfile.checkstyle > /dev/stderr
+					exit 1
+				fi
+			else
+				echo "file格式不能是带有BOM" > /dev/stderr
+				exit 1
+			fi
+		fi
+	done
+}
+readfile $TMPDIR
+rm -Rf $TMPDIR
