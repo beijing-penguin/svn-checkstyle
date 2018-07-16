@@ -7,23 +7,18 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 
 /**
- * 
- * @Description:  
- * @Title: JavaScriptMain.java      
- * @author: 段超 
- * @version V1.0
+ * @Description: TODO
+ * @author: dc
+ * @date: 2018年7月16日 上午11:24:29
+ * @version: V1.0
  */
 public class SvnCheckScriptMain {
     /**
      * 
-     * @Description:
-     * @Title: main  
-     * @param args args
-     * @throws Exception  
-     * 
-     * @author 段超   
-     * @date 2018年7月11日 上午10:41:21 
-     *
+     * @Description: TODO
+     * @param args TODO
+     * @throws Exception TODO
+     * @return: void
      */
     public static void main(String[] args) throws Exception {
         try {
