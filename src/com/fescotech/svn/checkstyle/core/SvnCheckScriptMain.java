@@ -3,8 +3,11 @@ package com.fescotech.svn.checkstyle.core;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.InputStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 
 /**
  * @Description: TODO
@@ -21,13 +24,27 @@ public class SvnCheckScriptMain {
      * @return: void
      */
     public static void main(String[] args) throws Exception {
+        String tmpdir = null;
         try {
+            tmpdir = args[4];
+        }catch (Exception e) {
+        }
+        if(tmpdir==null) {
+            tmpdir="";
+        }
+        String logFileStr = tmpdir+File.separator+"svncheck_error.log";
+        File logfile = new File(logFileStr);
+        if (!logfile.getParentFile().exists()) {
+            logfile.getParentFile().mkdirs();
+            logfile.createNewFile();
+        }
+        
+        try {
+
             String repos = args[0];
             String txn = args[1];
             String checkstyle = args[2];
             String checkstyleConfig = args[3];
-
-            String tmpdir = args[4];
 
             String command = "svnlook changed -t " + txn + " " + repos;
             String str = new String(commandExecute(command));
@@ -43,13 +60,14 @@ public class SvnCheckScriptMain {
                     } else {
                         fileName = svnFileName;
                     }
-                    String myname = fileName.substring(0, fileName.lastIndexOf("."));
-                    if (!classNameCheck(myname)) {
+                    //String myname = fileName.substring(0, fileName.lastIndexOf("."));
+                    /*if (!classNameCheck(myname)) {
                         System.err.println(fileName + "文件名命名不规范");
                         success = false;
                         break;
-                    }
+                    }*/
                     System.err.println(fileName);
+                    Files.write(Paths.get(logFileStr), fileName.getBytes(), StandardOpenOption.APPEND);
                     String c = "svnlook cat " + repos + " --transaction " + " " + txn + " \"" + svnFileName + "\"";
 
                     byte[] fileData = commandExecute(c);
@@ -75,6 +93,7 @@ public class SvnCheckScriptMain {
 
                     if (errorInfo.contains("Checkstyle")) {
                         for (String r : rtArr) {
+                            Files.write(Paths.get(logFileStr), r.getBytes(), StandardOpenOption.APPEND);
                             System.err.print(r);
                         }
                         success = false;
@@ -89,11 +108,25 @@ public class SvnCheckScriptMain {
                 System.exit(1);
             }
         } catch (Exception e) {
+            String exInfo = getExceptionAllinformation(e);
+            Files.write(Paths.get(logFileStr), exInfo.getBytes(), StandardOpenOption.APPEND);
             e.printStackTrace();
             throw e;
         }
     }
-
+    /**
+     * @param e e
+     * @return String
+     * @author dc
+     */
+    private static String getExceptionAllinformation(Throwable e){   
+        StringWriter sw = new StringWriter();   
+        PrintWriter pw = new PrintWriter(sw, true);   
+        e.printStackTrace(pw);   
+        pw.flush();   
+        sw.flush();   
+        return sw.toString();   
+    } 
     /**
      * 
      * @Description:
