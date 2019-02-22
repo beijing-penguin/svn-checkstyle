@@ -137,7 +137,7 @@ public class SvnCheckScriptMain {
         });
         
         t1.start();
-        TimeUnit.SECONDS.timedJoin(t1, 60*1);//1分钟
+        TimeUnit.SECONDS.timedJoin(t1, 60*10);//10分钟
         if (t1.isAlive()) {
             t1.interrupt();
         }
