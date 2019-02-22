@@ -8,6 +8,7 @@ import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @Description: TODO
@@ -16,6 +17,9 @@ import java.nio.file.StandardOpenOption;
  * @version: V1.0
  */
 public class SvnCheckScriptMain {
+
+
+
     /**
      * 
      * @Description: TODO
@@ -24,95 +28,121 @@ public class SvnCheckScriptMain {
      * @return: void
      */
     public static void main(String[] args) throws Exception {
-        String tmpdir = null;
-        try {
-            tmpdir = args[4];
-        }catch (Exception e) {
-        }
-        if(tmpdir==null) {
-            tmpdir="";
-        }
-        String logFileStr = tmpdir+File.separator+"svncheck_error.log";
-        File logfile = new File(logFileStr);
-        if (!logfile.getParentFile().exists()) {
-            logfile.getParentFile().mkdirs();
-            logfile.createNewFile();
-        }
-        
-        try {
-
-            String repos = args[0];
-            String txn = args[1];
-            String checkstyle = args[2];
-            String checkstyleConfig = args[3];
-
-            String command = "svnlook changed -t " + txn + " " + repos;
-            String str = new String(commandExecute(command));
-            boolean success = true;
-            for (String fileStr : str.split(System.getProperty("line.separator"))) {
-                String svnFileName = fileStr.substring(4);
-
-                if (svnFileName.endsWith(".java")) {
-                    String fileName = "";
-                    int index = svnFileName.lastIndexOf("/");
-                    if (index != -1) {
-                        fileName = svnFileName.substring(index + 1);
-                    } else {
-                        fileName = svnFileName;
-                    }
-                    //String myname = fileName.substring(0, fileName.lastIndexOf("."));
-                    /*if (!classNameCheck(myname)) {
-                        System.err.println(fileName + "文件名命名不规范");
-                        success = false;
-                        break;
-                    }*/
-                    System.err.println(fileName);
-                    Files.write(Paths.get(logFileStr), fileName.getBytes(), StandardOpenOption.APPEND);
-                    String c = "svnlook cat " + repos + " --transaction " + " " + txn + " \"" + svnFileName + "\"";
-
-                    byte[] fileData = commandExecute(c);
-
-                    String tmpCommitFilePath = tmpdir + File.separator + txn + File.separator + svnFileName;
-                    File file = new File(tmpCommitFilePath);
-                    if (!file.getParentFile().exists()) {
-                        file.getParentFile().mkdirs();
-                    }
-                    file.createNewFile();
-                    Files.write(Paths.get(tmpCommitFilePath), fileData);
-
-                    String checkCommand = "java -jar " + checkstyle + " -c " + checkstyleConfig + " " + ""
-                            + Paths.get(tmpCommitFilePath) + "";
-
-                    byte[] rtByte = commandExecute(checkCommand);
-                    String rt = new String(rtByte, "utf-8");
-
-                    String[] rtArr = rt.split("\n");
-                    rtArr[rtArr.length - 1] = new String(rtByte).split("\n")[rtArr.length - 1];
-
-                    String errorInfo = new String(rtByte).split("\n")[new String(rtByte).split("\n").length - 1];
-
-                    if (errorInfo.contains("Checkstyle")) {
-                        for (String r : rtArr) {
-                            Files.write(Paths.get(logFileStr), r.getBytes(), StandardOpenOption.APPEND);
-                            System.err.print(r);
+        Thread t1 = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                String tmpdir = null;
+                try {
+                    tmpdir = args[4];
+                }catch (Exception e) {
+                }
+                if(tmpdir==null) {
+                    tmpdir="";
+                }
+                String logFileStr = tmpdir+File.separator+"svncheck_error.log";
+                try {
+                    File logfile = new File(logFileStr);
+                    if (!logfile.getParentFile().exists()) {
+                        logfile.getParentFile().mkdirs();
+                    }else {
+                        if(!logfile.exists()) {
+                            logfile.createNewFile();
+                        }else {
+                            if(logfile.length()/1024/1024>=100) {
+                                logfile.delete();
+                                logfile.createNewFile();
+                            }
                         }
-                        success = false;
-                        break;
                     }
+
+                    String repos = args[0];
+                    String txn = args[1];
+                    String checkstyle = args[2];
+                    String checkstyleConfig = args[3];
+
+                    String command = "svnlook changed -t " + txn + " " + repos;
+                    String str = new String(commandExecute(command));
+                    boolean success = true;
+                    for (String fileStr : str.split(System.getProperty("line.separator"))) {
+                        String svnFileName = fileStr.substring(4);
+
+                        if (svnFileName.endsWith(".java")) {
+                            String fileName = "";
+                            int index = svnFileName.lastIndexOf("/");
+                            if (index != -1) {
+                                fileName = svnFileName.substring(index + 1);
+                            } else {
+                                fileName = svnFileName;
+                            }
+                            //String myname = fileName.substring(0, fileName.lastIndexOf("."));
+                            /*if (!classNameCheck(myname)) {
+                                System.err.println(fileName + "文件名命名不规范");
+                                success = false;
+                                break;
+                            }*/
+                            System.err.println(fileName);
+                            Files.write(Paths.get(logFileStr), (fileName+System.getProperty("line.separator")).getBytes(), StandardOpenOption.APPEND);
+                            String c = "svnlook cat " + repos + " --transaction " + " " + txn + " \"" + svnFileName + "\"";
+
+                            byte[] fileData = commandExecute(c);
+
+                            String tmpCommitFilePath = tmpdir + File.separator + txn + File.separator + svnFileName;
+                            File file = new File(tmpCommitFilePath);
+                            if (!file.getParentFile().exists()) {
+                                file.getParentFile().mkdirs();
+                            }
+                            file.createNewFile();
+                            Files.write(Paths.get(tmpCommitFilePath), fileData);
+
+                            String checkCommand = "java -jar " + checkstyle + " -c " + checkstyleConfig + " " + ""
+                                    + Paths.get(tmpCommitFilePath) + "";
+
+                            byte[] rtByte = commandExecute(checkCommand);
+                            String rt = new String(rtByte, "utf-8");
+
+                            String[] rtArr = rt.split("\n");
+                            rtArr[rtArr.length - 1] = new String(rtByte).split("\n")[rtArr.length - 1];
+
+                            String errorInfo = new String(rtByte).split("\n")[new String(rtByte).split("\n").length - 1];
+
+                            if (errorInfo.contains("Checkstyle")) {
+                                for (String r : rtArr) {
+                                    Files.write(Paths.get(logFileStr), (r+System.getProperty("line.separator")).getBytes(), StandardOpenOption.APPEND);
+                                    System.err.print(r);
+                                }
+                                success = false;
+                                break;
+                            }
+                        }
+                    }
+
+                    delAllFile(tmpdir + File.separator + txn);
+                    delFolder(tmpdir + File.separator + txn);
+                    if (!success) {
+                        System.exit(1);
+                    }else {
+                        System.exit(0);
+                    }
+                } catch (Exception e) {
+                    try {
+                        String exInfo = getExceptionAllinformation(e);
+                        Files.write(Paths.get(logFileStr), (exInfo+System.getProperty("line.separator")).getBytes(), StandardOpenOption.APPEND);
+                    } catch (Exception e1) {
+                        e1.printStackTrace();
+                    }
+                    System.err.println("svncheck程序异常，查看svncheck_error.log");
+                    System.exit(1);
                 }
             }
-
-            delAllFile(tmpdir + File.separator + txn);
-            delFolder(tmpdir + File.separator + txn);
-            if (!success) {
-                System.exit(1);
-            }
-        } catch (Exception e) {
-            String exInfo = getExceptionAllinformation(e);
-            Files.write(Paths.get(logFileStr), exInfo.getBytes(), StandardOpenOption.APPEND);
-            e.printStackTrace();
-            throw e;
+        });
+        
+        t1.start();
+        TimeUnit.SECONDS.timedJoin(t1, 60*1);//1分钟
+        if (t1.isAlive()) {
+            t1.interrupt();
         }
+        System.err.println("系统超时...........");
+        System.exit(1);
     }
     /**
      * @param e e
